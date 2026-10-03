@@ -892,7 +892,7 @@ export const SharePage: React.FC = () => {
         r.status === 'pending' ? { ...r, status: 'approved' as const } : r
       );
 
-      let updatedViewers = [...(link.viewers || [])];
+      const updatedViewers = [...(link.viewers || [])];
       for (const req of pendingReqs) {
         const targetEmail = req.profile?.workEmail;
         const existingIdx = updatedViewers.findIndex((v) => (targetEmail && v.email === targetEmail) || v.userName === req.requesterName);
