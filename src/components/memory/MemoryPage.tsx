@@ -365,27 +365,47 @@ export const MemoryPage: React.FC = () => {
       onDrop={handlePageDrop}
       className="max-w-6xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-6 text-zinc-900 dark:text-[#f4f4f6] relative"
     >
-      {/* Page-Wide Drag & Drop Visual Overlay */}
+      {/* Sleek Compact Page-Wide Drag Overlay */}
       <AnimatePresence>
         {isDragOverPage && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.98 }}
-            className="fixed inset-0 z-50 m-4 bg-white/95 dark:bg-[#07060f]/95 border-2 border-dashed border-[#5a25eb] dark:border-[#8b5cf6] shadow-2xl backdrop-blur-xl flex flex-col items-center justify-center p-6 text-center pointer-events-none rounded-3xl"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-50 bg-black/40 dark:bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 pointer-events-none"
           >
-            <div className="w-16 h-16 rounded-full bg-[#5a25eb]/10 dark:bg-[#5a25eb]/20 text-[#5a25eb] dark:text-[#cbbeff] flex items-center justify-center mb-4 shadow-lg animate-bounce">
-              <UploadCloud className="w-8 h-8" />
-            </div>
-            <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
-              Drop Document to Ingest into Memory Vault
-            </h3>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 max-w-sm">
-              Release anywhere to extract structured claims from PDF, Word (.docx), or Image files.
-            </p>
-            <span className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-mono font-medium bg-[#5a25eb]/10 text-[#5a25eb] dark:text-[#cbbeff] border border-[#5a25eb]/20">
-              PDF • DOCX • PNG • JPG • WEBP
-            </span>
+            <motion.div
+              initial={{ scale: 0.88, y: 14, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.92, y: 8, opacity: 0 }}
+              transition={{ type: 'spring', damping: 24, stiffness: 360 }}
+              className="w-full max-w-sm rounded-2xl p-5 sm:p-6 text-center bg-white/95 dark:bg-[#100f1c]/95 border-2 border-dashed border-[#5a25eb] dark:border-[#8b5cf6] shadow-[0_20px_60px_rgba(90,37,235,0.25)] dark:shadow-[0_25px_65px_rgba(0,0,0,0.8),0_0_30px_rgba(124,77,255,0.2)] backdrop-blur-2xl flex flex-col items-center"
+            >
+              <motion.div
+                animate={{ y: [0, -5, 0] }}
+                transition={{ repeat: Infinity, duration: 1.6, ease: 'easeInOut' }}
+                className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#5a25eb] to-[#8b5cf6] text-white flex items-center justify-center mb-3 shadow-md shadow-[#5a25eb]/30"
+              >
+                <UploadCloud className="w-6 h-6 stroke-[2.2]" />
+              </motion.div>
+              <h3 className="text-sm font-bold text-zinc-900 dark:text-white">
+                Drop to Ingest into Memory Vault
+              </h3>
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1">
+                Release file to extract structured claims
+              </p>
+              <div className="mt-3 flex items-center justify-center gap-1.5 flex-wrap">
+                {['PDF', 'DOCX', 'PNG', 'JPG', 'WEBP'].map((ext) => (
+                  <span
+                    key={ext}
+                    className="px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold bg-[#5a25eb]/10 dark:bg-[#5a25eb]/20 text-[#5a25eb] dark:text-[#cbbeff] border border-[#5a25eb]/20"
+                  >
+                    {ext}
+                  </span>
+                ))}
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -994,19 +1014,59 @@ export const MemoryPage: React.FC = () => {
               onClick={() => {
                 if (!isOcrRunning) modalFileInputRef.current?.click();
               }}
-              className={`border border-dashed rounded-2xl p-6 space-y-2 transition-all cursor-pointer ${
+              className={`border-2 border-dashed rounded-2xl p-5 transition-all cursor-pointer ${
                 isDragOverModal
-                  ? 'border-[#5a25eb] bg-[#5a25eb]/10 scale-[1.01] shadow-md ring-2 ring-[#5a25eb]/20'
-                  : 'border-zinc-300 dark:border-[#2d2b38] hover:border-[#5a25eb]/50 hover:bg-zinc-50 dark:hover:bg-[#1a1924]'
+                  ? 'border-[#5a25eb] dark:border-[#7c4dff] bg-[#5a25eb]/10 scale-[1.01] shadow-lg ring-2 ring-[#5a25eb]/20'
+                  : 'border-zinc-300 dark:border-[#2d2b38] hover:border-[#5a25eb]/50 hover:bg-zinc-50/80 dark:hover:bg-[#1a1924]/80'
               }`}
             >
-              <div className="pointer-events-none space-y-1">
-                <UploadCloud className={`w-8 h-8 mx-auto transition-transform ${isDragOverModal ? 'scale-110 text-[#5a25eb]' : 'text-[#5a25eb]'}`} />
-                <p className="font-semibold text-zinc-800 dark:text-zinc-200">
-                  {isDragOverModal ? 'Drop file here' : 'Drag & drop or click to select'}
-                </p>
-                <p className="text-[10px] text-zinc-500">PDF, Word (.docx) & Images · Up to 25 MB</p>
-              </div>
+              {!selectedFile ? (
+                <div className="pointer-events-none space-y-2 py-2">
+                  <div className={`w-10 h-10 rounded-xl mx-auto flex items-center justify-center transition-all ${
+                    isDragOverModal ? 'bg-[#5a25eb] text-white scale-110 shadow-md' : 'bg-[#5a25eb]/10 dark:bg-[#5a25eb]/20 text-[#5a25eb] dark:text-[#cbbeff]'
+                  }`}>
+                    <UploadCloud className="w-5 h-5 stroke-[2.2]" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-xs text-zinc-900 dark:text-zinc-100">
+                      {isDragOverModal ? 'Drop file to upload' : 'Click to select or drag & drop'}
+                    </p>
+                    <p className="text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                      PDF, Word (.docx), or Images · Up to 25 MB
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  className="flex items-center gap-2.5 p-2 rounded-xl bg-white dark:bg-[#14141e] border border-zinc-200 dark:border-[#272736] shadow-xs"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="p-2 rounded-lg bg-[#5a25eb]/10 dark:bg-[#5a25eb]/20 text-[#5a25eb] dark:text-[#cbbeff] shrink-0">
+                    <FileText className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0 flex-1 text-left">
+                    <p className="text-xs font-bold text-zinc-900 dark:text-zinc-100 truncate">{selectedFile.name}</p>
+                    <p className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono">
+                      {(selectedFile.size / (1024 * 1024) < 1)
+                        ? `${(selectedFile.size / 1024).toFixed(1)} KB`
+                        : `${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB`}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={isOcrRunning}
+                    onClick={() => {
+                      setSelectedFile(null);
+                      setOcrResult(null);
+                      setUploadError(null);
+                    }}
+                    className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-zinc-100 dark:hover:bg-white/10 transition-colors cursor-pointer shrink-0"
+                    title="Remove file"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
               <input
                 ref={modalFileInputRef}
                 type="file"
@@ -1026,29 +1086,6 @@ export const MemoryPage: React.FC = () => {
                 }}
                 className="hidden"
               />
-              {selectedFile && (
-                <div
-                  className="flex items-center justify-center gap-2 mt-2"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <span className="inline-block max-w-full break-all rounded bg-zinc-100 px-2.5 py-1 font-mono text-[10px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                    {selectedFile.name} · {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
-                  </span>
-                  <button
-                    type="button"
-                    disabled={isOcrRunning}
-                    onClick={() => {
-                      setSelectedFile(null);
-                      setOcrResult(null);
-                      setUploadError(null);
-                    }}
-                    className="rounded-full p-1 text-zinc-400 hover:text-red-500 cursor-pointer"
-                    title="Remove file"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              )}
             </div>
             <label className="block space-y-1 text-left text-[11px] font-semibold text-zinc-600 dark:text-zinc-300">
               Document category

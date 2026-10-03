@@ -1729,27 +1729,47 @@ export const ChatPage: React.FC = () => {
       onDrop={handleDrop}
       className="w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl mx-auto flex-1 flex flex-col h-full min-h-0 relative z-10 px-2 sm:px-4"
     >
-      {/* Visual Drag and Drop Overlay */}
+      {/* Sleek Compact Drag and Drop Overlay */}
       <AnimatePresence>
         {isDraggingOver && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.98 }}
-            className="absolute inset-0 z-50 rounded-3xl m-2 bg-white/95 dark:bg-[#07060f]/95 border-2 border-dashed border-[#5a25eb] dark:border-[#8b5cf6] shadow-2xl backdrop-blur-xl flex flex-col items-center justify-center p-6 text-center pointer-events-none"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="absolute inset-0 z-50 rounded-3xl bg-black/40 dark:bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 pointer-events-none"
           >
-            <div className="w-16 h-16 rounded-full bg-[#5a25eb]/10 dark:bg-[#5a25eb]/20 text-[#5a25eb] dark:text-[#cbbeff] flex items-center justify-center mb-4 shadow-lg animate-bounce">
-              <UploadCloud className="w-8 h-8" />
-            </div>
-            <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
-              Drop Document or Image to Analyze
-            </h3>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 max-w-sm">
-              Release to upload PDF, Word (.docx), or Image file directly into your Zero-Knowledge Vault.
-            </p>
-            <span className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-mono font-medium bg-[#5a25eb]/10 text-[#5a25eb] dark:text-[#cbbeff] border border-[#5a25eb]/20">
-              PDF • DOCX • PNG • JPG • WEBP
-            </span>
+            <motion.div
+              initial={{ scale: 0.88, y: 14, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.92, y: 8, opacity: 0 }}
+              transition={{ type: 'spring', damping: 24, stiffness: 360 }}
+              className="w-full max-w-sm rounded-2xl p-5 sm:p-6 text-center bg-white/95 dark:bg-[#100f1c]/95 border-2 border-dashed border-[#5a25eb] dark:border-[#8b5cf6] shadow-[0_20px_60px_rgba(90,37,235,0.25)] dark:shadow-[0_25px_65px_rgba(0,0,0,0.8),0_0_30px_rgba(124,77,255,0.2)] backdrop-blur-2xl flex flex-col items-center"
+            >
+              <motion.div
+                animate={{ y: [0, -5, 0] }}
+                transition={{ repeat: Infinity, duration: 1.6, ease: 'easeInOut' }}
+                className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#5a25eb] to-[#8b5cf6] text-white flex items-center justify-center mb-3 shadow-md shadow-[#5a25eb]/30"
+              >
+                <UploadCloud className="w-6 h-6 stroke-[2.2]" />
+              </motion.div>
+              <h3 className="text-sm font-bold text-zinc-900 dark:text-white">
+                Drop to Analyze Document
+              </h3>
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1">
+                Release to extract data & verified claims
+              </p>
+              <div className="mt-3 flex items-center justify-center gap-1.5 flex-wrap">
+                {['PDF', 'DOCX', 'PNG', 'JPG', 'WEBP'].map((ext) => (
+                  <span
+                    key={ext}
+                    className="px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold bg-[#5a25eb]/10 dark:bg-[#5a25eb]/20 text-[#5a25eb] dark:text-[#cbbeff] border border-[#5a25eb]/20"
+                  >
+                    {ext}
+                  </span>
+                ))}
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
