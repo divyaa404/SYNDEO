@@ -7,6 +7,7 @@ import {
   MessageSquare,
   Folder,
   Share2,
+  Bell,
   Settings,
   Menu,
   ChevronRight,
@@ -50,7 +51,8 @@ export const FloatingSidebar: React.FC<FloatingSidebarProps> = ({
     { path: '/chat', label: 'AI Memory Chat', icon: MessageSquare, desc: 'Zero-Knowledge Retrieval', shortcut: '⌘1' },
     { path: '/memory', label: 'Life-Stage Store', icon: Folder, desc: 'Obsidian Graph Vault', shortcut: '⌘2' },
     { path: '/share', label: 'Selective Share', icon: Share2, desc: 'Scoped zk-SNARK Links', shortcut: '⌘3' },
-    { path: '/settings', label: 'Vault Settings', icon: Settings, desc: 'Keys & Cryptography', shortcut: '⌘4' },
+    { path: '/reminders', label: 'Vault Reminders', icon: Bell, desc: 'Expiries & Actions', shortcut: '⌘4' },
+    { path: '/settings', label: 'Vault Settings', icon: Settings, desc: 'Keys & Cryptography', shortcut: '⌘5' },
   ];
 
   const handleNav = (path: RoutePath) => {
@@ -91,7 +93,7 @@ export const FloatingSidebar: React.FC<FloatingSidebarProps> = ({
         initial={false}
         animate={{
           width: isExpanded ? 300 : 76,
-          height: isExpanded ? 490 : 300,
+          height: isExpanded ? 540 : 345,
         }}
         transition={{
           duration: 0.4,

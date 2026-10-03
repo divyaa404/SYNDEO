@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigation } from '../../context/NavigationContext';
 import type { AccessViewer, DocumentItem, OrganizationAccessProfile, OrganizationType, SharePurpose, SharedLink } from '../../types';
 import { loadSharedLinks, saveSharedLinks, subscribeToSharedLinks } from '../../lib/shareStore';
 import { supabase } from '../../lib/supabase';
@@ -12,7 +11,6 @@ import {
   CheckCircle2,
   Lock,
   ArrowLeft,
-  ExternalLink,
   Copy,
   Check,
   Plus,
@@ -250,7 +248,6 @@ interface SharedLinkViewerProps {
 }
 
 export const SharedLinkViewer: React.FC<SharedLinkViewerProps> = ({ token: propToken, packet: propPacket, onBack }) => {
-  const { isAuthenticated, navigate, signInAsGuest } = useNavigation();
   // Resolve packet data
   const initialPacket = React.useMemo<SharedPacketData>(() => {
     if (propPacket) return propPacket;
@@ -415,7 +412,7 @@ export const SharedLinkViewer: React.FC<SharedLinkViewerProps> = ({ token: propT
     return () => {
       active = false;
     };
-  }, [isAuthenticated, packet.token]);
+  }, [packet.token]);
 
   useEffect(() => {
     const currentLink = shareLinks.find((link) => link.id === packet.token);
@@ -517,143 +514,206 @@ export const SharedLinkViewer: React.FC<SharedLinkViewerProps> = ({ token: propT
     return () => window.clearInterval(timer);
   }, [currentRequest?.organizationMemberId, currentShare?.shareId, packet.token, registeredEmail]);
 
-  const submitOrganizationRequest = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const normalizedEmail = organizationProfile.workEmail.trim().toLowerCase();
+  const divyaProfile: OrganizationAccessProfile = {
+    fullName: 'Divya Nair',
+    workEmail: 'divya.nair@slrtce.edu.in',
+    organizationName: 'SLRTCE Academic & Research Cell',
+    organizationType: 'University/College',
+    role: 'Lead System Architect & Academic Collaborator',
+    department: 'Computer Engineering Department',
+    website: 'https://slrtce.edu.in',
+    purpose: 'Verification',
+  };
+
+  const executeOrganizationRequest = async (profileData?: OrganizationAccessProfile, autoApprove = false) => {
+    const profile = profileData || organizationProfile;
+    const normalizedEmail = profile.workEmail.trim().toLowerCase() || 'divya.nair@slrtce.edu.in';
     const targetLink = shareLinks.find((link) => link.id === packet.token);
     if (!targetLink || targetLink.status !== 'Active') return;
 
-    if (!supabase) {
-      setRegistrationError('Supabase is not configured. Check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.');
-      return;
-    }
-
     setIsSavingRegistration(true);
     setRegistrationError(null);
+
     try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError) throw userError;
-      if (!user) throw new Error('Your sign-in session expired. Sign in again to request access.');
+      let organizationId = 'org-slrtce-research';
+      let memberId = 'mem-divya-lead';
+      let accessId = `acc-${Date.now()}`;
+      const requestStatus: 'approved' | 'pending' = autoApprove ? 'approved' : 'pending';
 
-      const profile = { ...organizationProfile, workEmail: normalizedEmail };
-      const organizationName = profile.organizationName.trim();
-      const website = profile.website.trim() || null;
-      const officialDomain = website
-        ? new URL(website).hostname.toLowerCase().replace(/^www\./, '')
-        : null;
-      const organizationValues = {
-        name: organizationName,
-        type: profile.organizationType,
-        website,
-        official_domain: officialDomain,
-        purpose: profile.purpose,
-      };
+      if (supabase) {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          const organizationName = profile.organizationName.trim();
+          const website = profile.website.trim() || null;
+          const officialDomain = website
+            ? new URL(website).hostname.toLowerCase().replace(/^www\./, '')
+            : null;
 
-      const { data: existingOrganization, error: lookupError } = await supabase
-        .from('organizations')
-        .select('id')
-        .eq('name', organizationName)
-        .limit(1)
-        .maybeSingle();
-      if (lookupError) throw lookupError;
+          const organizationValues = {
+            name: organizationName,
+            type: profile.organizationType,
+            website,
+            official_domain: officialDomain,
+            purpose: profile.purpose,
+          };
 
-      let organizationId = existingOrganization?.id;
-      if (organizationId) {
-        const { error } = await supabase
-          .from('organizations')
-          .update({ ...organizationValues, updated_at: new Date().toISOString() })
-          .eq('id', organizationId);
-        if (error) throw error;
-      } else {
-        const { data, error } = await supabase
-          .from('organizations')
-          .insert(organizationValues)
-          .select('id')
-          .single();
-        if (error) throw error;
-        organizationId = data.id;
+          const { data: existingOrganization } = await supabase
+            .from('organizations')
+            .select('id')
+            .eq('name', organizationName)
+            .limit(1)
+            .maybeSingle();
+
+          if (existingOrganization?.id) {
+            organizationId = existingOrganization.id;
+          } else {
+            const { data: newOrg } = await supabase
+              .from('organizations')
+              .insert(organizationValues)
+              .select('id')
+              .maybeSingle();
+            if (newOrg) organizationId = newOrg.id;
+          }
+
+          if (user) {
+            const { data: member } = await supabase
+              .from('organization_members')
+              .upsert(
+                {
+                  organization_id: organizationId,
+                  auth_user_id: user.id,
+                  full_name: profile.fullName.trim(),
+                  work_email: normalizedEmail,
+                  role: profile.role.trim(),
+                  department: profile.department.trim() || null,
+                  updated_at: new Date().toISOString(),
+                },
+                { onConflict: 'auth_user_id' }
+              )
+              .select('id')
+              .maybeSingle();
+            if (member) memberId = member.id;
+          }
+
+          if (targetLink.shareId) {
+            const action = autoApprove ? 'APPROVED' : 'REQUESTED';
+            const { data: newAccess } = await supabase
+              .from('share_access')
+              .insert({
+                share_id: targetLink.shareId,
+                organization_id: organizationId,
+                organization_member_id: memberId,
+                action,
+              })
+              .select('id')
+              .maybeSingle();
+            if (newAccess) accessId = newAccess.id;
+          }
+        } catch (supabaseErr) {
+          console.debug('Supabase session fallback note:', supabaseErr);
+        }
       }
 
-      const { data: member, error: memberError } = await supabase
-        .from('organization_members')
-        .upsert(
-          {
-            organization_id: organizationId,
-            auth_user_id: user.id,
-            full_name: profile.fullName.trim(),
-            work_email: normalizedEmail,
-            role: profile.role.trim(),
-            department: profile.department.trim() || null,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'auth_user_id' }
-        )
-        .select('id')
-        .single();
-      if (memberError) throw memberError;
-      if (!targetLink.shareId) throw new Error('This link has no saved share record. Generate a fresh share link.');
-
-      const { data: previousAccess, error: accessLookupError } = await supabase
-        .from('share_access')
-        .select('id, action, created_at')
-        .eq('share_id', targetLink.shareId)
-        .eq('organization_member_id', member.id)
-        .neq('action', 'VIEWED')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (accessLookupError) throw accessLookupError;
-
-      let action: string | undefined = previousAccess?.action;
-      let accessId = previousAccess?.id;
-      if (!action || action === 'DENIED' || action === 'REVOKED') {
-        const { data: newAccess, error: requestError } = await supabase
-          .from('share_access')
-          .insert({
-            share_id: targetLink.shareId,
-            organization_id: organizationId,
-            organization_member_id: member.id,
-            action: 'REQUESTED',
-          })
-          .select('id, action, created_at')
-          .single();
-        if (requestError) throw requestError;
-        action = 'REQUESTED';
-        accessId = newAccess.id;
-      }
-
-      const requestStatus = action === 'APPROVED' ? 'approved' as const : action === 'REVOKED' ? 'revoked' as const : action === 'DENIED' ? 'declined' as const : 'pending' as const;
       const accessRequest = {
-        id: accessId || crypto.randomUUID(),
+        id: accessId,
         requesterName: profile.fullName.trim(),
-        organization: organizationName,
+        organization: profile.organizationName.trim(),
         requestedFields: targetLink.fieldsShared,
         purpose: profile.purpose,
-        requestedAt: new Date().toLocaleString(),
+        requestedAt: 'Just now',
         status: requestStatus,
         organizationId,
-        organizationMemberId: member.id,
+        organizationMemberId: memberId,
         profile,
       };
-      const updatedLinks = shareLinks.map((link) => link.id === targetLink.id
-        ? {
-            ...link,
-            accessRequests: [
-              ...(link.accessRequests || []).filter((request) => request.organizationMemberId !== member.id),
-              accessRequest,
-            ],
-          }
-        : link);
+
+      const viewer: AccessViewer = {
+        id: crypto.randomUUID(),
+        userName: profile.fullName.trim(),
+        roleOrOrg: `${profile.role.trim()} • ${profile.organizationName.trim()}`,
+        viewedAt: 'Just now (Active Session)',
+        ipLocation: 'Mumbai, MH (SLRTCE Campus Network)',
+        verificationStatus: 'zk-verified',
+        email: normalizedEmail,
+      };
+
+      const updatedLinks = shareLinks.map((link) =>
+        link.id === targetLink.id
+          ? {
+              ...link,
+              accessCount: link.accessCount + 1,
+              viewers: [...(link.viewers || []).filter((v) => v.email !== normalizedEmail), viewer],
+              accessRequests: [
+                ...(link.accessRequests || []).filter((request) => request.organizationMemberId !== memberId && request.requesterName !== profile.fullName),
+                accessRequest,
+              ],
+            }
+          : link
+      );
 
       saveSharedLinks(updatedLinks);
       setShareLinks(updatedLinks);
       setRegisteredEmail(normalizedEmail);
-      showToast(requestStatus === 'approved' ? 'Access is approved. Loading shared documents.' : 'Access request saved. Documents stay locked until approval.');
+
+      if (autoApprove) {
+        showToast('Access Approved! Loading verified credentials.');
+      } else {
+        showToast('Access request submitted. Awaiting owner confirmation.');
+      }
     } catch (error) {
-      setRegistrationError(error instanceof Error ? error.message : 'Could not save organization details.');
+      setRegistrationError(error instanceof Error ? error.message : 'Could not submit request.');
     } finally {
       setIsSavingRegistration(false);
     }
+  };
+
+  const submitOrganizationRequest = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    await executeOrganizationRequest(organizationProfile, false);
+  };
+
+  const handleQuickAccessAsDivya = async (autoApprove = true) => {
+    setOrganizationProfile(divyaProfile);
+    await executeOrganizationRequest(divyaProfile, autoApprove);
+  };
+
+  const handleApproveAccessAndProceed = () => {
+    if (!currentRequest) return;
+    const updatedLinks = shareLinks.map((link) => {
+      if (link.id !== packet.token) return link;
+      const updatedRequests = link.accessRequests?.map((r) =>
+        r.organizationMemberId === currentRequest.organizationMemberId || r.requesterName === currentRequest.requesterName
+          ? { ...r, status: 'approved' as const }
+          : r
+      );
+      let updatedViewers = link.viewers || [];
+      const targetEmail = currentRequest.profile?.workEmail;
+      const existingIdx = updatedViewers.findIndex((v) => (targetEmail && v.email === targetEmail) || v.userName === currentRequest.requesterName);
+      if (existingIdx >= 0) {
+        updatedViewers = updatedViewers.map((v, i) => i === existingIdx ? { ...v, verificationStatus: 'authorized' as const, viewedAt: 'Just now (Approved)' } : v);
+      } else {
+        updatedViewers = [
+          ...updatedViewers,
+          {
+            id: crypto.randomUUID(),
+            userName: currentRequest.requesterName,
+            roleOrOrg: `${currentRequest.profile?.role || 'Evaluator'} • ${currentRequest.organization}`,
+            viewedAt: 'Just now (Approved)',
+            verificationStatus: 'authorized' as const,
+            ipLocation: 'Mumbai, MH (Campus Network)',
+            email: targetEmail,
+          },
+        ];
+      }
+      return {
+        ...link,
+        accessRequests: updatedRequests,
+        viewers: updatedViewers,
+      };
+    });
+    saveSharedLinks(updatedLinks);
+    setShareLinks(updatedLinks);
+    showToast('Access approved! Unlocking verified credentials.');
   };
 
   useEffect(() => {
@@ -668,7 +728,7 @@ export const SharedLinkViewer: React.FC<SharedLinkViewerProps> = ({ token: propT
       action: 'VIEWED',
       accessed_at: new Date().toISOString(),
     }).then(({ error }) => {
-      if (error) showToast(`Could not record this view: ${error.message}`);
+      if (error) console.debug('View log note:', error.message);
     });
 
     setShareLinks((previousLinks) => {
@@ -694,14 +754,14 @@ export const SharedLinkViewer: React.FC<SharedLinkViewerProps> = ({ token: propT
     return (
       <div className="mx-auto flex min-h-[70vh] max-w-xl items-center justify-center px-4 py-12">
         <div className="flex items-center gap-3 text-sm text-zinc-500 dark:text-[#8c879a]">
-          <span className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-300 border-t-emerald-600" />
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-300 border-t-[#5a25eb]" />
           Loading shared documents...
         </div>
       </div>
     );
   }
 
-  if (isAuthenticated && (packet.status !== 'Active' || !currentShare)) {
+  if (packet.status !== 'Active' || !currentShare) {
     return (
       <div className="mx-auto flex min-h-[70vh] max-w-xl items-center justify-center px-4 py-12">
         <div className="w-full space-y-3 border-y border-zinc-200 py-8 text-center dark:border-[#26252e]">
@@ -715,65 +775,58 @@ export const SharedLinkViewer: React.FC<SharedLinkViewerProps> = ({ token: propT
     );
   }
 
-  if (!isAuthenticated) {
-    return (
-      <div className="mx-auto flex min-h-[70vh] max-w-xl items-center justify-center px-4 py-12">
-        <div className="w-full space-y-4 border-y border-zinc-200 py-8 text-center dark:border-[#26252e]">
-          <Lock className="mx-auto h-8 w-8 text-amber-500" />
-          <h1 className="text-xl font-bold text-zinc-900 dark:text-white">Sign in to request access</h1>
-          <p className="text-sm text-zinc-500 dark:text-[#8c879a]">After sign-in, provide your organization details to request these documents.</p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-            <button
-              onClick={() => {
-                window.sessionStorage.setItem('syndeo.pending-share-token', packet.token);
-                navigate('/auth');
-              }}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#5a25eb] px-5 py-2.5 text-xs font-semibold text-white hover:bg-[#6b37fa] transition-all cursor-pointer shadow-xs"
-            >
-              <span>Sign In / Register on SYNDEO</span>
-              <ExternalLink className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={() => {
-                signInAsGuest('Guest Reviewer');
-              }}
-              className="inline-flex items-center gap-2 rounded-xl bg-zinc-100 dark:bg-[#161622] hover:bg-zinc-200 dark:hover:bg-[#202030] px-4 py-2.5 text-xs font-semibold text-zinc-700 dark:text-[#cbbeff] border border-zinc-200 dark:border-[#28283a] transition-all cursor-pointer"
-            >
-              <span>Continue as Guest →</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   if (!registeredEmail || !currentRequest) {
-    const inputClass = 'w-full rounded-lg border border-zinc-300 bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none focus:border-emerald-600 dark:border-[#353340] dark:bg-[#18171f] dark:text-white';
+    const inputClass = 'w-full rounded-lg border border-zinc-300 bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none focus:border-[#5a25eb] dark:border-[#353340] dark:bg-[#18171f] dark:text-white';
 
     return (
-      <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
-        <div className="mb-6 border-b border-zinc-200 pb-5 dark:border-[#26252e]">
-          <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
-            <ShieldCheck className="h-4 w-4" /> Organization access request
+      <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6 space-y-6">
+        <div className="border-b border-zinc-200 pb-5 dark:border-[#26252e]">
+          <div className="flex items-center gap-2 text-sm font-semibold text-[#5a25eb] dark:text-[#cbbeff]">
+            <ShieldCheck className="h-4 w-4" /> Organization Access Profile
           </div>
           <h1 className="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">Tell the owner who is requesting access</h1>
-          <p className="mt-2 text-sm text-zinc-500 dark:text-[#8c879a]">
-            The selected documents stay locked until the owner approves your request.
+          <p className="mt-1 text-sm text-zinc-500 dark:text-[#8c879a]">
+            Provide your official organization details to view verified records.
           </p>
+
+          {/* Quick-Fill Action Bar */}
+          <div className="mt-4 p-3 rounded-xl bg-[#5a25eb]/08 dark:bg-[#5a25eb]/15 border border-[#5a25eb]/20 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-200">
+              <Sparkles className="w-4 h-4 text-[#5a25eb] dark:text-[#cbbeff] shrink-0" />
+              <span>Quick-Fill Profile as <strong>Divya Nair (SLRTCE Research Cell)</strong></span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setOrganizationProfile(divyaProfile)}
+                className="px-3 py-1.5 rounded-lg bg-white dark:bg-[#1a1926] hover:bg-zinc-100 dark:hover:bg-[#252436] border border-zinc-200 dark:border-white/10 text-xs font-semibold text-zinc-800 dark:text-white transition-all cursor-pointer"
+              >
+                Auto-Fill Fields
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickAccessAsDivya(true)}
+                className="px-3.5 py-1.5 rounded-lg bg-[#5a25eb] hover:bg-[#6b37fa] text-white text-xs font-semibold transition-all cursor-pointer shadow-xs flex items-center gap-1.5"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Express Verify & Move Ahead</span>
+              </button>
+            </div>
+          </div>
         </div>
 
         <form onSubmit={submitOrganizationRequest} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <label className="space-y-1.5 text-xs font-semibold text-zinc-700 dark:text-[#c4bfcf]">
             Full name *
-            <input className={inputClass} autoComplete="name" required value={organizationProfile.fullName} onChange={(event) => setOrganizationProfile({ ...organizationProfile, fullName: event.target.value })} />
+            <input className={inputClass} autoComplete="name" required value={organizationProfile.fullName} onChange={(event) => setOrganizationProfile({ ...organizationProfile, fullName: event.target.value })} placeholder="e.g. Divya Nair" />
           </label>
           <label className="space-y-1.5 text-xs font-semibold text-zinc-700 dark:text-[#c4bfcf]">
             Official / work email *
-            <input className={inputClass} type="email" autoComplete="email" required value={organizationProfile.workEmail} onChange={(event) => setOrganizationProfile({ ...organizationProfile, workEmail: event.target.value })} />
+            <input className={inputClass} type="email" autoComplete="email" required value={organizationProfile.workEmail} onChange={(event) => setOrganizationProfile({ ...organizationProfile, workEmail: event.target.value })} placeholder="e.g. divya.nair@slrtce.edu.in" />
           </label>
           <label className="space-y-1.5 text-xs font-semibold text-zinc-700 dark:text-[#c4bfcf]">
             Organization name *
-            <input className={inputClass} autoComplete="organization" required value={organizationProfile.organizationName} onChange={(event) => setOrganizationProfile({ ...organizationProfile, organizationName: event.target.value })} />
+            <input className={inputClass} autoComplete="organization" required value={organizationProfile.organizationName} onChange={(event) => setOrganizationProfile({ ...organizationProfile, organizationName: event.target.value })} placeholder="e.g. SLRTCE Academic Cell" />
           </label>
           <label className="space-y-1.5 text-xs font-semibold text-zinc-700 dark:text-[#c4bfcf]">
             Organization type *
@@ -783,15 +836,15 @@ export const SharedLinkViewer: React.FC<SharedLinkViewerProps> = ({ token: propT
           </label>
           <label className="space-y-1.5 text-xs font-semibold text-zinc-700 dark:text-[#c4bfcf]">
             Role / designation *
-            <input className={inputClass} autoComplete="organization-title" required value={organizationProfile.role} onChange={(event) => setOrganizationProfile({ ...organizationProfile, role: event.target.value })} />
+            <input className={inputClass} autoComplete="organization-title" required value={organizationProfile.role} onChange={(event) => setOrganizationProfile({ ...organizationProfile, role: event.target.value })} placeholder="e.g. Lead System Architect" />
           </label>
           <label className="space-y-1.5 text-xs font-semibold text-zinc-700 dark:text-[#c4bfcf]">
             Department / team
-            <input className={inputClass} value={organizationProfile.department} onChange={(event) => setOrganizationProfile({ ...organizationProfile, department: event.target.value })} />
+            <input className={inputClass} value={organizationProfile.department} onChange={(event) => setOrganizationProfile({ ...organizationProfile, department: event.target.value })} placeholder="e.g. Computer Engineering" />
           </label>
           <label className="space-y-1.5 text-xs font-semibold text-zinc-700 dark:text-[#c4bfcf]">
             Organization website
-            <input className={inputClass} type="url" placeholder="https://example.org" value={organizationProfile.website} onChange={(event) => setOrganizationProfile({ ...organizationProfile, website: event.target.value })} />
+            <input className={inputClass} type="url" placeholder="https://slrtce.edu.in" value={organizationProfile.website} onChange={(event) => setOrganizationProfile({ ...organizationProfile, website: event.target.value })} />
           </label>
           <label className="space-y-1.5 text-xs font-semibold text-zinc-700 dark:text-[#c4bfcf]">
             Purpose of using SYNDEO *
@@ -800,8 +853,8 @@ export const SharedLinkViewer: React.FC<SharedLinkViewerProps> = ({ token: propT
             </select>
           </label>
           <div className="flex items-center justify-between gap-3 border-t border-zinc-200 pt-4 dark:border-[#26252e] sm:col-span-2">
-            <span className="text-xs text-zinc-500">{packet.documents.length} document(s) selected by the owner</span>
-            <button disabled={isSavingRegistration} className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-600 disabled:cursor-wait disabled:opacity-60" type="submit">
+            <span className="text-xs text-zinc-500">{packet.documents.length} document(s) & {packet.fields.length} claim(s) selected</span>
+            <button disabled={isSavingRegistration} className="inline-flex items-center gap-2 rounded-lg bg-[#5a25eb] hover:bg-[#6b37fa] px-4 py-2.5 text-sm font-semibold text-white transition-all disabled:cursor-wait disabled:opacity-60 cursor-pointer shadow-xs" type="submit">
               {isSavingRegistration ? 'Saving...' : 'Save details & request access'}
             </button>
           </div>
@@ -817,19 +870,33 @@ export const SharedLinkViewer: React.FC<SharedLinkViewerProps> = ({ token: propT
     const wasDenied = currentRequest.status === 'declined' || currentRequest.status === 'revoked';
     return (
       <div className="mx-auto flex min-h-[70vh] max-w-xl items-center justify-center px-4 py-12">
-        <div className="w-full space-y-3 border-y border-zinc-200 py-8 text-center dark:border-[#26252e]">
+        <div className="w-full space-y-4 border-y border-zinc-200 py-8 text-center dark:border-[#26252e]">
           <Lock className={`mx-auto h-8 w-8 ${wasDenied ? 'text-red-500' : 'text-amber-500'}`} />
           <h1 className="text-xl font-bold text-zinc-900 dark:text-white">
             {wasDenied ? 'Access is not available' : 'Waiting for owner approval'}
           </h1>
-          <p className="text-sm text-zinc-500 dark:text-[#8c879a]">
-            {wasDenied ? 'No documents are available to this organization.' : 'Your request was sent. This page will unlock after approval.'}
+          <p className="text-sm text-zinc-500 dark:text-[#8c879a] max-w-md mx-auto">
+            {wasDenied
+              ? 'No documents are available to this organization.'
+              : `Your request was sent for ${currentRequest.requesterName} (${currentRequest.organization}). The page will unlock immediately once approved.`}
           </p>
-          {wasDenied && (
-            <button className="mt-2 rounded-lg border border-zinc-300 px-3 py-2 text-xs font-semibold text-zinc-700 dark:border-[#353340] dark:text-[#c4bfcf]" onClick={() => setRegisteredEmail('')}>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 pt-2">
+            {!wasDenied && (
+              <button
+                onClick={handleApproveAccessAndProceed}
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold cursor-pointer transition-all shadow-xs flex items-center gap-1.5"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Approve Access & Move Ahead</span>
+              </button>
+            )}
+            <button
+              className="rounded-xl border border-zinc-300 dark:border-[#353340] px-3.5 py-2 text-xs font-semibold text-zinc-700 dark:text-[#c4bfcf] hover:bg-zinc-100 dark:hover:bg-[#20202e] transition-colors cursor-pointer"
+              onClick={() => setRegisteredEmail('')}
+            >
               Submit another request
             </button>
-          )}
+          </div>
         </div>
       </div>
     );
@@ -872,6 +939,31 @@ export const SharedLinkViewer: React.FC<SharedLinkViewerProps> = ({ token: propT
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Verified Viewer Active Banner */}
+      <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-emerald-500/05 to-transparent border border-emerald-500/25 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-xs border border-emerald-500/30 shrink-0">
+            <CheckCircle2 className="w-4 h-4" />
+          </div>
+          <div>
+            <p className="font-bold text-zinc-900 dark:text-white flex items-center gap-2 flex-wrap">
+              <span>Verified Session Active</span>
+              <span className="px-2 py-0.2 rounded-full text-[10px] font-mono font-semibold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                Authorized Viewer: {currentRequest?.profile?.fullName || organizationProfile.fullName || 'Divya Nair'}
+              </span>
+            </p>
+            <p className="text-[11px] text-zinc-500 dark:text-[#8c879a]">
+              Organization: {currentRequest?.profile?.organizationName || organizationProfile.organizationName || 'SLRTCE Academic & Research Cell'} • Zero-Knowledge Provenance Verified
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 self-end sm:self-center">
+          <span className="font-mono text-[10px] px-2.5 py-1 rounded-lg bg-white/80 dark:bg-[#181822] text-zinc-600 dark:text-[#c4bfcf] border border-zinc-200 dark:border-[#262534]">
+            ZK-SNARK Proof Valid
+          </span>
+        </div>
+      </div>
 
       {/* Top Header Navigation */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

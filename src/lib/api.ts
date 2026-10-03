@@ -305,12 +305,87 @@ export async function fetchAuditLogs() {
 
 const REMINDERS_KEY = 'syndeo_reminders';
 
+const DEFAULT_INITIAL_REMINDERS: import('../types').Reminder[] = [
+  {
+    reminder_id: 'rem-share-expiry',
+    person_id: 'local',
+    title: 'SLRTCE Research Cell Share Envelope Expiry',
+    description: 'Cryptographic zk-SNARK access envelope expires in 7 days.',
+    category: 'deadline',
+    priority: 'critical',
+    due_at: new Date(Date.now() + 6 * 86400000).toISOString(),
+    recurrence: 'none',
+    remind_before: '3_days',
+    status: 'ACTIVE',
+    source_type: 'manual',
+    source_label: 'SLRTCE Research Cell Share Link',
+    notes: 'Divya Nair active session currently auditing transcript & certificates.',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    reminder_id: 'rem-aws-cert',
+    person_id: 'local',
+    title: 'AWS Certified Solutions Architect Recertification',
+    description: 'Renew AWS Solutions Architect Associate credential before validity expiration.',
+    category: 'expiry',
+    priority: 'high',
+    due_at: new Date(Date.now() + 18 * 86400000).toISOString(),
+    recurrence: 'none',
+    remind_before: '7_days',
+    status: 'ACTIVE',
+    source_type: 'memory_claim',
+    source_label: 'AWS Certificate ID: AWS-992384',
+    notes: 'Exam voucher available through university partner account.',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    reminder_id: 'rem-academic-transcript',
+    person_id: 'local',
+    title: 'SLRTCE Semester 7 Degree Marksheet Audit',
+    description: 'Submit verified digital transcript for final year project accreditation.',
+    category: 'task',
+    priority: 'medium',
+    due_at: new Date(Date.now() + 32 * 86400000).toISOString(),
+    recurrence: 'monthly',
+    remind_before: '1_day',
+    status: 'ACTIVE',
+    source_type: 'memory_claim',
+    source_label: 'SLRTCE Academic Vault Record',
+    notes: 'Verify CGPA 8.45 seal before final university export.',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    reminder_id: 'rem-id-kyc',
+    person_id: 'local',
+    title: 'Periodic Identity & PAN Merkle Root Proof Verification',
+    description: 'Re-anchor zero-knowledge state proof on-chain.',
+    category: 'recurring',
+    priority: 'low',
+    due_at: new Date(Date.now() + 60 * 86400000).toISOString(),
+    recurrence: 'monthly',
+    remind_before: '1_day',
+    status: 'ACTIVE',
+    source_type: 'manual',
+    source_label: 'Zero-Knowledge Trust Anchor',
+    notes: 'Automated cryptographic verification heartbeat.',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
+
 function loadLocalReminders(): import('../types').Reminder[] {
   try {
     const raw = localStorage.getItem(REMINDERS_KEY);
-    if (raw) return JSON.parse(raw) as import('../types').Reminder[];
+    if (raw) {
+      const parsed = JSON.parse(raw) as import('../types').Reminder[];
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
   } catch { /* ignore */ }
-  return [];
+  saveLocalReminders(DEFAULT_INITIAL_REMINDERS);
+  return DEFAULT_INITIAL_REMINDERS;
 }
 
 function saveLocalReminders(reminders: import('../types').Reminder[]) {

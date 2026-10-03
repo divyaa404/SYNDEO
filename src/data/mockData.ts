@@ -476,6 +476,15 @@ export const initialSharedLinks: SharedLink[] = [
     accessCount: 3,
     viewers: [
       {
+        id: 'v-divya',
+        userName: 'Divya Nair',
+        roleOrOrg: 'Lead System Architect & Academic Collaborator • SLRTCE Research Cell',
+        viewedAt: 'Just now (Active Session)',
+        ipLocation: 'Mumbai, MH (SLRTCE Campus Network)',
+        verificationStatus: 'zk-verified',
+        email: 'divya.nair@slrtce.edu.in',
+      },
+      {
         id: 'v-1',
         userName: 'Ankita Sharma',
         roleOrOrg: 'Senior Admissions Evaluator • Acme University',
@@ -501,6 +510,26 @@ export const initialSharedLinks: SharedLink[] = [
       },
     ],
     accessRequests: [
+      {
+        id: 'req-divya',
+        requesterName: 'Divya Nair',
+        organization: 'SLRTCE Academic & Research Cell',
+        requestedFields: ['School / College', 'Degree & Major', 'GPA / CGPA', 'Official Transcripts'],
+        purpose: 'Academic Capstone & Joint Research Publication Verification',
+        requestedAt: 'Just now',
+        status: 'pending',
+        organizationMemberId: 'mem-divya-1',
+        profile: {
+          fullName: 'Divya Nair',
+          workEmail: 'divya.nair@slrtce.edu.in',
+          organizationName: 'SLRTCE Academic & Research Cell',
+          organizationType: 'University/College',
+          role: 'Lead System Architect & Research Collaborator',
+          department: 'Computer Engineering',
+          website: 'https://slrtce.edu.in',
+          purpose: 'Verification',
+        },
+      },
       {
         id: 'req-1',
         requesterName: 'Ankita Sharma',

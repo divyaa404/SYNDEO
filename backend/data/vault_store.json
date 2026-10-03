@@ -46,7 +46,7 @@
       "evidenceDocHash": "779bfbfc498b1f0db61976be539310696f4e0b0849c2c8f88bfa98c749153e4a",
       "isSingular": true,
       "isSensitive": false,
-      "rawNumericValue": 8.2,
+      "rawNumericValue": null,
       "status": "ACTIVE",
       "lastUpdated": "03 Oct 2026"
     },
@@ -293,7 +293,7 @@
   ],
   "documents": [
     {
-      "id": "doc-1d4b714a",
+      "id": "doc-7f2ede87",
       "name": "Name.docx",
       "category": "education",
       "fileType": "IMAGE",
@@ -436,71 +436,29 @@
       "status": "Parsed"
     },
     {
-      "id": "doc-422732e2",
-      "name": "degree_certificate.pdf",
+      "id": "doc-1d4b714a",
+      "name": "Name.docx",
       "category": "education",
-      "fileType": "PDF",
-      "fileSize": "0.1 KB",
-      "sha256Hash": "914941c05a6e4eada181ba43aca794f40c259bb69826dadc5d850fa51117bd7e",
+      "fileType": "IMAGE",
+      "fileSize": "13.8 KB",
+      "sha256Hash": "ca689e247540253e2fb72a7577d2b19e6d417a597a2b3180cc3202c554c8f8d5",
       "uploadDate": "03 Oct 2026",
       "extractedFieldsCount": 0,
       "status": "Parsed"
     },
     {
-      "id": "doc-27e293ba",
-      "name": "degree.pdf",
+      "id": "doc-1a0206cd",
+      "name": "Name.docx",
       "category": "education",
-      "fileType": "PDF",
-      "fileSize": "0.1 KB",
-      "sha256Hash": "3a63bdda8cee45889d512b47882f425cef97d5aada4ecfd54b59decc106d71da",
-      "uploadDate": "03 Oct 2026",
-      "extractedFieldsCount": 0,
-      "status": "Parsed"
-    },
-    {
-      "id": "doc-00331ed4",
-      "name": "marksheet_new.pdf",
-      "category": "education",
-      "fileType": "PDF",
-      "fileSize": "0.1 KB",
-      "sha256Hash": "628e9909349b3b1b3039992d8c2e9fce957758439e74632f643d187ec09d86d3",
-      "uploadDate": "03 Oct 2026",
-      "extractedFieldsCount": 0,
-      "status": "Parsed"
-    },
-    {
-      "id": "doc-bbaf588d",
-      "name": "injected_doc.pdf",
-      "category": "education",
-      "fileType": "PDF",
-      "fileSize": "0.3 KB",
-      "sha256Hash": "469e88b0be363f9f6d1af3bbcd56d6992750d86879c14a4b0976676ae7142833",
-      "uploadDate": "03 Oct 2026",
-      "extractedFieldsCount": 0,
-      "status": "Parsed"
-    },
-    {
-      "id": "doc-e5487bea",
-      "name": "doc.pdf",
-      "category": "education",
-      "fileType": "PDF",
-      "fileSize": "0.0 KB",
-      "sha256Hash": "df2b0a224a573a9267df2d02b3766fb46b8cd0517a2497a7feda816662125e1f",
+      "fileType": "IMAGE",
+      "fileSize": "13.8 KB",
+      "sha256Hash": "ca689e247540253e2fb72a7577d2b19e6d417a597a2b3180cc3202c554c8f8d5",
       "uploadDate": "03 Oct 2026",
       "extractedFieldsCount": 0,
       "status": "Parsed"
     }
   ],
-  "history": [
-    {
-      "id": "hist-8943fcdf",
-      "nodeId": "rec-fa0b6499",
-      "fieldName": "Cumulative GPA (CGPA)",
-      "previousValue": "8.20 / 10.0",
-      "newValue": "8.20 / 10.0",
-      "changedAt": "2026-10-03T09:47:01.085914+00:00"
-    }
-  ],
+  "history": [],
   "conflicts": [],
-  "updated_at": "2026-10-03T09:47:10.946294+00:00"
+  "updated_at": "2026-10-03T09:49:41.365865+00:00"
 }
