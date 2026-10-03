@@ -176,18 +176,41 @@ export const ChatPage: React.FC = () => {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  useEffect(() => {
+    const handleWindowDragOver = (e: DragEvent) => {
+      e.preventDefault();
+      if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = 'copy';
+      }
+    };
+    const handleWindowDrop = (e: DragEvent) => {
+      e.preventDefault();
+    };
+
+    window.addEventListener('dragover', handleWindowDragOver);
+    window.addEventListener('drop', handleWindowDrop);
+    return () => {
+      window.removeEventListener('dragover', handleWindowDragOver);
+      window.removeEventListener('drop', handleWindowDrop);
+    };
+  }, []);
+
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     dragCounterRef.current += 1;
-    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
-      setIsDraggingOver(true);
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = 'copy';
     }
+    setIsDraggingOver(true);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = 'copy';
+    }
     if (!isDraggingOver) setIsDraggingOver(true);
   };
 
@@ -209,6 +232,10 @@ export const ChatPage: React.FC = () => {
 
     const file = e.dataTransfer.files?.[0];
     if (file) {
+      if (file.size > 25 * 1024 * 1024) {
+        alert('File size exceeds 25 MB limit.');
+        return;
+      }
       setAttachedFile({
         name: file.name,
         size: file.size,
@@ -2271,19 +2298,29 @@ export const ChatPage: React.FC = () => {
                 initial={{ opacity: 0, y: 6, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 4, scale: 0.95 }}
-                className="flex items-center gap-2 p-1.5 pl-2.5 pr-2 rounded-xl bg-white/85 dark:bg-[#12121c] border border-blue-200 dark:border-[#272738] shadow-xs backdrop-blur-md max-w-sm"
+                className="flex items-center gap-2 p-1.5 pl-2.5 pr-2 rounded-xl bg-white/95 dark:bg-[#12121c] border border-[#5a25eb]/30 dark:border-[#5a25eb]/40 shadow-md backdrop-blur-md max-w-md"
               >
-                <div className="p-1 rounded-md bg-[#5a25eb]/10 dark:bg-[#5a25eb]/20 text-[#5a25eb] dark:text-[#cbbeff] shrink-0">
-                  <FileText className="w-3.5 h-3.5" />
+                <div className="p-1.5 rounded-lg bg-[#5a25eb]/10 dark:bg-[#5a25eb]/20 text-[#5a25eb] dark:text-[#cbbeff] shrink-0">
+                  <FileText className="w-4 h-4" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate">{attachedFile.name}</p>
+                  <p className="text-xs font-bold text-zinc-900 dark:text-zinc-100 truncate">{attachedFile.name}</p>
                   <p className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono">{attachedFile.formattedSize}</p>
                 </div>
                 <button
                   type="button"
+                  onClick={() => handleSendMessage()}
+                  disabled={isTyping || isStreaming}
+                  className="px-2.5 py-1 rounded-lg bg-[#5a25eb] hover:bg-[#6b37fa] text-white text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer shrink-0 shadow-2xs"
+                  title="Run OCR & Vault Document AI Extraction"
+                >
+                  <Sparkles className="w-3 h-3" />
+                  <span>Analyze</span>
+                </button>
+                <button
+                  type="button"
                   onClick={() => setAttachedFile(null)}
-                  className="p-1 rounded-md text-zinc-400 hover:text-zinc-700 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                  className="p-1 rounded-md text-zinc-400 hover:text-red-500 hover:bg-zinc-100 dark:hover:bg-white/10 transition-colors cursor-pointer shrink-0"
                   title="Remove attachment"
                 >
                   <X className="w-3.5 h-3.5" />

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import type { LifeStageCategory, RecordField, DocumentItem, OCRDocumentResult } from '../../types';
 import { initialRecords, initialDocuments } from '../../data/mockData';
 import { fetchRecordsFromBackend, fetchDocumentsFromBackend, addClaimToBackend, uploadDocumentToBackend, confirmDocumentClaims, clearMemoryStore } from '../../lib/api';
@@ -200,12 +201,85 @@ export const MemoryPage: React.FC = () => {
   const [isAddInfoOpen, setIsAddInfoOpen] = useState<boolean>(false);
   const [isUploadDocOpen, setIsUploadDocOpen] = useState<boolean>(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isDragOverPage, setIsDragOverPage] = useState<boolean>(false);
   const [isDragOverModal, setIsDragOverModal] = useState<boolean>(false);
+  const pageDragCounterRef = useRef<number>(0);
+  const modalDragCounterRef = useRef<number>(0);
   const modalFileInputRef = useRef<HTMLInputElement>(null);
   const [uploadCategory, setUploadCategory] = useState<LifeStageCategory>('education');
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [ocrResult, setOcrResult] = useState<OCRDocumentResult | null>(null);
   const [isOcrRunning, setIsOcrRunning] = useState(false);
+
+  // Global window drag prevention to ensure reliable file drops without browser navigating
+  useEffect(() => {
+    const handleWindowDragOver = (e: DragEvent) => {
+      e.preventDefault();
+      if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = 'copy';
+      }
+    };
+    const handleWindowDrop = (e: DragEvent) => {
+      e.preventDefault();
+    };
+
+    window.addEventListener('dragover', handleWindowDragOver);
+    window.addEventListener('drop', handleWindowDrop);
+    return () => {
+      window.removeEventListener('dragover', handleWindowDragOver);
+      window.removeEventListener('drop', handleWindowDrop);
+    };
+  }, []);
+
+  const handlePageDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    pageDragCounterRef.current += 1;
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = 'copy';
+    }
+    setIsDragOverPage(true);
+  };
+
+  const handlePageDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = 'copy';
+    }
+    if (!isDragOverPage) setIsDragOverPage(true);
+  };
+
+  const handlePageDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    pageDragCounterRef.current -= 1;
+    if (pageDragCounterRef.current <= 0) {
+      pageDragCounterRef.current = 0;
+      setIsDragOverPage(false);
+    }
+  };
+
+  const handlePageDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    pageDragCounterRef.current = 0;
+    setIsDragOverPage(false);
+
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      if (file.size > 25 * 1024 * 1024) {
+        setSelectedFile(null);
+        setUploadError('Choose a file that is 25 MB or smaller.');
+        setIsUploadDocOpen(true);
+        return;
+      }
+      setSelectedFile(file);
+      setUploadError(null);
+      setOcrResult(null);
+      setIsUploadDocOpen(true);
+    }
+  };
 
   // Add Info Form state
   const [newCategory, setNewCategory] = useState<LifeStageCategory>('identity');
@@ -284,7 +358,37 @@ export const MemoryPage: React.FC = () => {
   const visibleDocuments = [...localDocuments, ...documents];
 
   return (
-    <div className="max-w-6xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-6 text-zinc-900 dark:text-[#f4f4f6]">
+    <div
+      onDragEnter={handlePageDragEnter}
+      onDragOver={handlePageDragOver}
+      onDragLeave={handlePageDragLeave}
+      onDrop={handlePageDrop}
+      className="max-w-6xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-6 text-zinc-900 dark:text-[#f4f4f6] relative"
+    >
+      {/* Page-Wide Drag & Drop Visual Overlay */}
+      <AnimatePresence>
+        {isDragOverPage && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.98 }}
+            className="fixed inset-0 z-50 m-4 bg-white/95 dark:bg-[#07060f]/95 border-2 border-dashed border-[#5a25eb] dark:border-[#8b5cf6] shadow-2xl backdrop-blur-xl flex flex-col items-center justify-center p-6 text-center pointer-events-none rounded-3xl"
+          >
+            <div className="w-16 h-16 rounded-full bg-[#5a25eb]/10 dark:bg-[#5a25eb]/20 text-[#5a25eb] dark:text-[#cbbeff] flex items-center justify-center mb-4 shadow-lg animate-bounce">
+              <UploadCloud className="w-8 h-8" />
+            </div>
+            <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
+              Drop Document to Ingest into Memory Vault
+            </h3>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 max-w-sm">
+              Release anywhere to extract structured claims from PDF, Word (.docx), or Image files.
+            </p>
+            <span className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-mono font-medium bg-[#5a25eb]/10 text-[#5a25eb] dark:text-[#cbbeff] border border-[#5a25eb]/20">
+              PDF • DOCX • PNG • JPG • WEBP
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
       {/* Clean Minimal Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-200 dark:border-[#181820] pb-4">
         <div>
@@ -851,21 +955,29 @@ export const MemoryPage: React.FC = () => {
               onDragEnter={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                modalDragCounterRef.current += 1;
+                if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
                 if (!isOcrRunning) setIsDragOverModal(true);
               }}
               onDragOver={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                if (!isOcrRunning) setIsDragOverModal(true);
+                if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+                if (!isOcrRunning && !isDragOverModal) setIsDragOverModal(true);
               }}
               onDragLeave={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                setIsDragOverModal(false);
+                modalDragCounterRef.current -= 1;
+                if (modalDragCounterRef.current <= 0) {
+                  modalDragCounterRef.current = 0;
+                  setIsDragOverModal(false);
+                }
               }}
               onDrop={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                modalDragCounterRef.current = 0;
                 setIsDragOverModal(false);
                 if (isOcrRunning) return;
                 const file = e.dataTransfer.files?.[0];
@@ -884,14 +996,17 @@ export const MemoryPage: React.FC = () => {
               }}
               className={`border border-dashed rounded-2xl p-6 space-y-2 transition-all cursor-pointer ${
                 isDragOverModal
-                  ? 'border-[#5a25eb] bg-[#5a25eb]/10 scale-[1.01] shadow-md'
+                  ? 'border-[#5a25eb] bg-[#5a25eb]/10 scale-[1.01] shadow-md ring-2 ring-[#5a25eb]/20'
                   : 'border-zinc-300 dark:border-[#2d2b38] hover:border-[#5a25eb]/50 hover:bg-zinc-50 dark:hover:bg-[#1a1924]'
               }`}
             >
-              <UploadCloud className={`w-8 h-8 mx-auto transition-transform ${isDragOverModal ? 'scale-110 text-[#5a25eb]' : 'text-[#5a25eb]'}`} />
-              <p className="font-semibold text-zinc-800 dark:text-zinc-200">
-                {isDragOverModal ? 'Drop file here' : 'Drag & drop or click to select'}
-              </p>
+              <div className="pointer-events-none space-y-1">
+                <UploadCloud className={`w-8 h-8 mx-auto transition-transform ${isDragOverModal ? 'scale-110 text-[#5a25eb]' : 'text-[#5a25eb]'}`} />
+                <p className="font-semibold text-zinc-800 dark:text-zinc-200">
+                  {isDragOverModal ? 'Drop file here' : 'Drag & drop or click to select'}
+                </p>
+                <p className="text-[10px] text-zinc-500">PDF, Word (.docx) & Images · Up to 25 MB</p>
+              </div>
               <input
                 ref={modalFileInputRef}
                 type="file"
@@ -911,7 +1026,6 @@ export const MemoryPage: React.FC = () => {
                 }}
                 className="hidden"
               />
-              <p className="text-[10px] text-zinc-500">PDF, Word (.docx) & Images · Up to 25 MB</p>
               {selectedFile && (
                 <div
                   className="flex items-center justify-center gap-2 mt-2"
