@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 import type { User } from '@supabase/supabase-js';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 
-export type RoutePath = '/' | '/auth' | '/chat' | '/memory' | '/share' | '/settings';
+export type RoutePath = '/' | '/auth' | '/chat' | '/memory' | '/share' | '/settings' | '/reminders';
 
 interface NavigationContextType {
   currentPath: RoutePath;
@@ -25,12 +25,12 @@ export const NavigationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const getInitialPath = (): RoutePath => {
     if (typeof window !== 'undefined') {
       const pathname = window.location.pathname as RoutePath;
-      if (['/', '/auth', '/chat', '/memory', '/share', '/settings'].includes(pathname)) {
+      if (['/', '/auth', '/chat', '/memory', '/share', '/settings', '/reminders'].includes(pathname)) {
         return pathname;
       }
       // Check hash fallback if hosted on static preview
       const hash = window.location.hash.replace('#', '') as RoutePath;
-      if (['/', '/auth', '/chat', '/memory', '/share', '/settings'].includes(hash)) {
+      if (['/', '/auth', '/chat', '/memory', '/share', '/settings', '/reminders'].includes(hash)) {
         return hash;
       }
     }
@@ -136,7 +136,7 @@ export const NavigationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   useEffect(() => {
     const handlePopState = () => {
       const pathname = window.location.pathname as RoutePath;
-      if (['/', '/auth', '/chat', '/memory', '/share', '/settings'].includes(pathname)) {
+      if (['/', '/auth', '/chat', '/memory', '/share', '/settings', '/reminders'].includes(pathname)) {
         setCurrentPath(pathname);
       }
     };

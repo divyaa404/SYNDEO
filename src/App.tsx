@@ -8,6 +8,7 @@ import { ChatPage } from './components/chat/ChatPage';
 import { MemoryPage } from './components/memory/MemoryPage';
 import { SharePage } from './components/share/SharePage';
 import { SettingsPage } from './components/settings/SettingsPage';
+import { RemindersPage } from './components/reminders/RemindersPage';
 
 import { SharedLinkViewer } from './components/share/SharedLinkViewer';
 
@@ -60,8 +61,11 @@ const AppContent: React.FC = () => {
         return <SharePage />;
       case '/settings':
         return <SettingsPage />;
+      case '/reminders':
+        return <RemindersPage />;
       default:
         return <HomePage />;
+
     }
   };
 

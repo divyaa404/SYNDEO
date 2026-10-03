@@ -300,3 +300,127 @@ export async function fetchAuditLogs() {
     return null;
   }
 }
+
+// ─── Reminder API ─────────────────────────────────────────────────────────────
+
+const REMINDERS_KEY = 'syndeo_reminders';
+
+function loadLocalReminders(): import('../types').Reminder[] {
+  try {
+    const raw = localStorage.getItem(REMINDERS_KEY);
+    if (raw) return JSON.parse(raw) as import('../types').Reminder[];
+  } catch { /* ignore */ }
+  return [];
+}
+
+function saveLocalReminders(reminders: import('../types').Reminder[]) {
+  try {
+    localStorage.setItem(REMINDERS_KEY, JSON.stringify(reminders));
+  } catch { /* ignore */ }
+}
+
+export async function fetchReminders(): Promise<import('../types').Reminder[]> {
+  try {
+    const res = await apiFetch('/api/reminders');
+    if (!res.ok) throw new Error('Failed to fetch reminders');
+    const data = await res.json();
+    const reminders = (data.reminders ?? data) as import('../types').Reminder[];
+    saveLocalReminders(reminders);
+    return reminders;
+  } catch {
+    return loadLocalReminders();
+  }
+}
+
+export async function createReminder(
+  proposal: import('../types').ReminderProposal
+): Promise<import('../types').Reminder | null> {
+  const newReminder: import('../types').Reminder = {
+    reminder_id: `rem-${crypto.randomUUID()}`,
+    person_id: 'local',
+    title: proposal.title,
+    description: proposal.description,
+    category: proposal.category,
+    priority: proposal.priority,
+    due_at: proposal.due_at,
+    recurrence: proposal.recurrence,
+    remind_before: proposal.remind_before,
+    status: 'ACTIVE',
+    source_claim_id: proposal.source_claim_id,
+    source_type: proposal.source_type,
+    source_label: proposal.source_label,
+    notes: proposal.notes,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  try {
+    const res = await apiFetch('/api/reminders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(proposal),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const saved = (data.reminder ?? data) as import('../types').Reminder;
+      const all = loadLocalReminders().filter(r => r.reminder_id !== saved.reminder_id);
+      saveLocalReminders([saved, ...all]);
+      return saved;
+    }
+  } catch { /* fallback */ }
+  // Optimistic local save
+  const all = loadLocalReminders();
+  saveLocalReminders([newReminder, ...all]);
+  return newReminder;
+}
+
+export async function updateReminderStatus(
+  reminderId: string,
+  status: import('../types').ReminderStatus,
+  extra?: { snoozed_until?: string }
+): Promise<boolean> {
+  // Optimistic local update
+  const all = loadLocalReminders().map(r =>
+    r.reminder_id === reminderId
+      ? {
+          ...r,
+          status,
+          updated_at: new Date().toISOString(),
+          completed_at: status === 'COMPLETED' ? new Date().toISOString() : r.completed_at,
+          snoozed_until: extra?.snoozed_until ?? r.snoozed_until,
+        }
+      : r
+  );
+  saveLocalReminders(all);
+  try {
+    const res = await apiFetch(`/api/reminders/${reminderId}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status, ...extra }),
+    });
+    return res.ok;
+  } catch {
+    return true; // already saved locally
+  }
+}
+
+export async function deleteReminder(reminderId: string): Promise<boolean> {
+  const all = loadLocalReminders().filter(r => r.reminder_id !== reminderId);
+  saveLocalReminders(all);
+  try {
+    const res = await apiFetch(`/api/reminders/${reminderId}`, { method: 'DELETE' });
+    return res.ok;
+  } catch {
+    return true;
+  }
+}
+
+export async function fetchExpiryDetectedReminders(): Promise<import('../types').Reminder[]> {
+  try {
+    const res = await apiFetch('/api/reminders/expiry-detected');
+    if (!res.ok) throw new Error('No expiry data');
+    const data = await res.json();
+    return (data.reminders ?? data) as import('../types').Reminder[];
+  } catch {
+    return [];
+  }
+}
