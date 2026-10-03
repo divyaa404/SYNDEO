@@ -174,3 +174,73 @@ export interface OCRDocumentResult {
   processingTimeMs?: number;
   error?: string;
 }
+
+// ─── Reminder System Types ────────────────────────────────────────────────────
+
+export type ReminderStatus = 'ACTIVE' | 'COMPLETED' | 'SNOOZED' | 'DISMISSED' | 'OVERDUE';
+
+export type ReminderPriority = 'critical' | 'high' | 'medium' | 'low';
+
+export type ReminderCategory =
+  | 'expiry'
+  | 'appointment'
+  | 'birthday'
+  | 'anniversary'
+  | 'task'
+  | 'medication'
+  | 'deadline'
+  | 'recurring'
+  | 'special'
+  | 'other';
+
+export type ReminderRecurrence =
+  | 'none'
+  | 'daily'
+  | 'weekly'
+  | 'monthly'
+  | 'yearly'
+  | 'custom';
+
+export type ReminderSourceType = 'memory_claim' | 'manual' | 'chat';
+
+export interface Reminder {
+  reminder_id: string;
+  person_id: string;
+  title: string;
+  description?: string;
+  category: ReminderCategory;
+  priority: ReminderPriority;
+  due_at: string; // ISO 8601
+  timezone?: string;
+  recurrence: ReminderRecurrence;
+  remind_before?: string; // e.g. '7_days', '1_hour', '30_minutes'
+  status: ReminderStatus;
+  source_claim_id?: string;
+  source_type: ReminderSourceType;
+  source_label?: string; // e.g. "Personal Memory → Driving License"
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+  completed_at?: string;
+  snoozed_until?: string;
+}
+
+export interface ReminderProposal {
+  title: string;
+  description?: string;
+  due_at: string;
+  remind_before?: string;
+  recurrence: ReminderRecurrence;
+  priority: ReminderPriority;
+  category: ReminderCategory;
+  notes?: string;
+  source_claim_id?: string;
+  source_type: ReminderSourceType;
+  source_label?: string;
+}
+
+export interface ReminderAuditEvent {
+  event: string;
+  reminder_id: string;
+  timestamp: string;
+}
