@@ -7,6 +7,7 @@ import {
   VolumeX,
   X,
   Sparkles,
+  Globe2,
 } from 'lucide-react';
 import { AILoaderOrb, type OrbStateMode } from '../ui/ai-loader';
 import { useTheme } from '../../context/ThemeContext';
@@ -26,6 +27,9 @@ interface InChatVoiceStageProps {
   onToggleMute: () => void;
   transcript: string;
   assistantResponse: string;
+  renderAssistantResponse: (content: string) => React.ReactNode;
+  isBusy: boolean;
+  onSelectSocialLinks: () => void;
   onStartListening: () => void;
   onStopListening: () => void;
   onClose: () => void;
@@ -45,6 +49,9 @@ export const InChatVoiceStage: React.FC<InChatVoiceStageProps> = ({
   onToggleMute,
   transcript,
   assistantResponse,
+  renderAssistantResponse,
+  isBusy,
+  onSelectSocialLinks,
   onStartListening,
   onStopListening,
   onClose,
@@ -340,29 +347,36 @@ export const InChatVoiceStage: React.FC<InChatVoiceStageProps> = ({
           ) : null}
         </AnimatePresence>
 
-        {/* AI Spoken Response */}
         <AnimatePresence>
           {assistantResponse && (
             <motion.div
-              key="voice-assistant-card"
+              key="voice-assistant-response"
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2 }}
-              className="max-w-2xl mx-auto px-5 py-3 rounded-2xl bg-[#5a25eb]/10 dark:bg-white/5 border border-[#5a25eb]/20 dark:border-white/10 backdrop-blur-md"
+              className="max-w-2xl mx-auto text-sm sm:text-base text-zinc-800 dark:text-zinc-200 leading-relaxed text-center break-words"
             >
-              <div className="flex items-center justify-center gap-1.5 mb-1">
-                <Sparkles className="w-3.5 h-3.5 text-[#5a25eb] dark:text-[#cbbeff]" />
-                <span className="text-[11px] font-mono font-bold uppercase text-[#5a25eb] dark:text-[#cbbeff] tracking-wider">
-                  SYNDEO Response
-                </span>
-              </div>
-              <p className="text-sm sm:text-base text-zinc-800 dark:text-zinc-200 leading-relaxed font-normal text-center">
-                {assistantResponse}
-              </p>
+              {renderAssistantResponse(assistantResponse)}
             </motion.div>
           )}
         </AnimatePresence>
+      </div>
+
+      <div className="w-full flex justify-center px-2 pb-3 z-20">
+        <button
+          type="button"
+          onClick={onSelectSocialLinks}
+          disabled={isBusy}
+          className="inline-flex items-center gap-2 rounded-full border border-[#5a25eb]/20 dark:border-white/15 bg-white/65 dark:bg-white/10 px-4 py-2 text-left text-zinc-800 dark:text-zinc-100 shadow-sm backdrop-blur-md transition-all hover:bg-white dark:hover:bg-white/15 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
+          aria-label="Show all social links: GitHub, LinkedIn, and Discord"
+        >
+          <Globe2 className="w-4 h-4 shrink-0 text-[#5a25eb] dark:text-[#cbbeff]" />
+          <span className="flex flex-col">
+            <span className="text-xs font-semibold">Show all social links</span>
+            <span className="text-[10px] text-zinc-500 dark:text-zinc-400">GitHub, LinkedIn &amp; Discord</span>
+          </span>
+        </button>
       </div>
 
       {/* Bottom Minimal Controls (Mic Toggle & Global Mute) */}

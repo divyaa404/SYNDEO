@@ -755,7 +755,7 @@ export const ChatPage: React.FC = () => {
     setIsProcessingDoc(false);
     setIsStreaming(true);
     setStreamingText('');
-    setAssistantVoiceResponse(fullResponse.content);
+    setAssistantVoiceResponse('');
     setVoiceState('speaking');
     setOrbState('speaking');
 
@@ -770,11 +770,10 @@ export const ChatPage: React.FC = () => {
 
     streamIntervalRef.current = setInterval(() => {
       if (index < words.length) {
-        // Stream smoothly: 2-3 words per tick to avoid rapid 50Hz layout recalculations
-        const step = words.length > 80 ? 3 : 2;
-        const nextIndex = Math.min(index + step, words.length);
+        const nextIndex = Math.min(index + 1, words.length);
         const currentSlice = words.slice(0, nextIndex).join(' ');
         setStreamingText(currentSlice);
+        setAssistantVoiceResponse(currentSlice);
         index = nextIndex;
       } else {
         if (streamIntervalRef.current) clearInterval(streamIntervalRef.current);
@@ -786,7 +785,7 @@ export const ChatPage: React.FC = () => {
         setIsProcessingDoc(false);
         setOrbState('idle');
       }
-    }, 28);
+    }, 55);
   };
 
   const handleAcceptCandidateClaim = async (msgId: string, claimId: string) => {
@@ -1764,6 +1763,9 @@ export const ChatPage: React.FC = () => {
             onToggleMute={toggleMute}
             transcript={voiceTranscript}
             assistantResponse={assistantVoiceResponse}
+            renderAssistantResponse={(content) => renderFormattedContent(content)}
+            isBusy={isTyping || isStreaming}
+            onSelectSocialLinks={() => handleSendMessage('Show all my social links')}
             onStartListening={startVoiceListening}
             onStopListening={stopVoiceListening}
             onClose={closeVoiceModal}
@@ -2457,7 +2459,7 @@ export const ChatPage: React.FC = () => {
                   <button
                     type="submit"
                     disabled={(!inputText.trim() && !attachedFile) || isTyping || isStreaming}
-                    className="w-9 h-9 sm:w-10 sm:h-10 rounded-[14px] bg-gradient-to-br from-[#c9b8ff] to-[#b9a4ff] dark:from-[#8b5cf6] dark:to-[#6d28d9] text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-[0_5px_15px_rgba(120,90,255,0.22)] cursor-pointer flex items-center justify-center shrink-0 mr-0.5"
+                    className="w-9 h-9 sm:w-10 sm:h-10 rounded-[14px] bg-gradient-to-br from-[#8b5cf6] to-[#6d28d9] hover:from-[#7c3aed] hover:to-[#5b21b6] dark:from-[#8b5cf6] dark:to-[#6d28d9] dark:hover:from-[#7c3aed] dark:hover:to-[#5b21b6] text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-[0_5px_15px_rgba(120,90,255,0.22)] cursor-pointer flex items-center justify-center shrink-0 mr-0.5"
                     aria-label="Send"
                   >
                     <ArrowUp className="w-4 h-4 stroke-[3]" />
