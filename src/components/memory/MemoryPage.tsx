@@ -200,6 +200,8 @@ export const MemoryPage: React.FC = () => {
   const [isAddInfoOpen, setIsAddInfoOpen] = useState<boolean>(false);
   const [isUploadDocOpen, setIsUploadDocOpen] = useState<boolean>(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isDragOverModal, setIsDragOverModal] = useState<boolean>(false);
+  const modalFileInputRef = useRef<HTMLInputElement>(null);
   const [uploadCategory, setUploadCategory] = useState<LifeStageCategory>('education');
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [ocrResult, setOcrResult] = useState<OCRDocumentResult | null>(null);
@@ -845,10 +847,53 @@ export const MemoryPage: React.FC = () => {
             </p>
           )}
           <div className="space-y-3 text-center">
-            <div className="border border-dashed border-zinc-300 dark:border-[#2d2b38] rounded-2xl p-6 space-y-2">
-              <UploadCloud className="w-8 h-8 text-[#5a25eb] mx-auto" />
-              <p className="font-semibold text-zinc-800 dark:text-zinc-200">Select Document</p>
+            <div
+              onDragEnter={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!isOcrRunning) setIsDragOverModal(true);
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!isOcrRunning) setIsDragOverModal(true);
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDragOverModal(false);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDragOverModal(false);
+                if (isOcrRunning) return;
+                const file = e.dataTransfer.files?.[0];
+                if (!file) return;
+                if (file.size > 25 * 1024 * 1024) {
+                  setSelectedFile(null);
+                  setUploadError('Choose a file that is 25 MB or smaller.');
+                  return;
+                }
+                setSelectedFile(file);
+                setUploadError(null);
+                setOcrResult(null);
+              }}
+              onClick={() => {
+                if (!isOcrRunning) modalFileInputRef.current?.click();
+              }}
+              className={`border border-dashed rounded-2xl p-6 space-y-2 transition-all cursor-pointer ${
+                isDragOverModal
+                  ? 'border-[#5a25eb] bg-[#5a25eb]/10 scale-[1.01] shadow-md'
+                  : 'border-zinc-300 dark:border-[#2d2b38] hover:border-[#5a25eb]/50 hover:bg-zinc-50 dark:hover:bg-[#1a1924]'
+              }`}
+            >
+              <UploadCloud className={`w-8 h-8 mx-auto transition-transform ${isDragOverModal ? 'scale-110 text-[#5a25eb]' : 'text-[#5a25eb]'}`} />
+              <p className="font-semibold text-zinc-800 dark:text-zinc-200">
+                {isDragOverModal ? 'Drop file here' : 'Drag & drop or click to select'}
+              </p>
               <input
+                ref={modalFileInputRef}
                 type="file"
                 accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/*"
                 disabled={isOcrRunning}
@@ -864,11 +909,14 @@ export const MemoryPage: React.FC = () => {
                   setUploadError(null);
                   setOcrResult(null);
                 }}
-                className="block w-full text-xs text-zinc-600 file:mr-3 file:rounded-lg file:border-0 file:bg-zinc-100 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-zinc-700 hover:file:bg-zinc-200 dark:text-zinc-300 dark:file:bg-[#23222c] dark:file:text-zinc-200"
+                className="hidden"
               />
-              <p className="text-[10px] text-zinc-500">PDF / image OCR, DOCX text extraction · 25 MB max · available until you leave this page</p>
+              <p className="text-[10px] text-zinc-500">PDF, Word (.docx) & Images · Up to 25 MB</p>
               {selectedFile && (
-                <div className="flex items-center justify-center gap-2">
+                <div
+                  className="flex items-center justify-center gap-2 mt-2"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <span className="inline-block max-w-full break-all rounded bg-zinc-100 px-2.5 py-1 font-mono text-[10px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
                     {selectedFile.name} · {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
                   </span>

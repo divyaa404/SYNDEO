@@ -30,6 +30,7 @@ import {
   CheckCircle2,
   Loader2,
   Edit3,
+  UploadCloud,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -151,6 +152,8 @@ export const ChatPage: React.FC = () => {
     sha256?: string;
   }
   const [attachedFile, setAttachedFile] = useState<AttachedFile | null>(null);
+  const [isDraggingOver, setIsDraggingOver] = useState<boolean>(false);
+  const dragCounterRef = useRef<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const formatFileSize = (bytes: number): string => {
@@ -171,6 +174,49 @@ export const ChatPage: React.FC = () => {
       });
     }
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current += 1;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDraggingOver(true);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isDraggingOver) setIsDraggingOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current -= 1;
+    if (dragCounterRef.current <= 0) {
+      dragCounterRef.current = 0;
+      setIsDraggingOver(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = 0;
+    setIsDraggingOver(false);
+
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      setAttachedFile({
+        name: file.name,
+        size: file.size,
+        formattedSize: formatFileSize(file.size),
+        type: file.type || 'application/octet-stream',
+        file,
+      });
+    }
   };
 
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -1650,7 +1696,38 @@ export const ChatPage: React.FC = () => {
   };
 
   return (
-    <div className="w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl mx-auto flex-1 flex flex-col h-full min-h-0 relative z-10 px-2 sm:px-4">
+    <div
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className="w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl mx-auto flex-1 flex flex-col h-full min-h-0 relative z-10 px-2 sm:px-4"
+    >
+      {/* Visual Drag and Drop Overlay */}
+      <AnimatePresence>
+        {isDraggingOver && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.98 }}
+            className="absolute inset-0 z-50 rounded-3xl m-2 bg-white/95 dark:bg-[#07060f]/95 border-2 border-dashed border-[#5a25eb] dark:border-[#8b5cf6] shadow-2xl backdrop-blur-xl flex flex-col items-center justify-center p-6 text-center pointer-events-none"
+          >
+            <div className="w-16 h-16 rounded-full bg-[#5a25eb]/10 dark:bg-[#5a25eb]/20 text-[#5a25eb] dark:text-[#cbbeff] flex items-center justify-center mb-4 shadow-lg animate-bounce">
+              <UploadCloud className="w-8 h-8" />
+            </div>
+            <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
+              Drop Document or Image to Analyze
+            </h3>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 max-w-sm">
+              Release to upload PDF, Word (.docx), or Image file directly into your Zero-Knowledge Vault.
+            </p>
+            <span className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-mono font-medium bg-[#5a25eb]/10 text-[#5a25eb] dark:text-[#cbbeff] border border-[#5a25eb]/20">
+              PDF • DOCX • PNG • JPG • WEBP
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Full-Screen Immersive Voice Overlay */}
       <AnimatePresence>
         {isVoiceModalOpen && (

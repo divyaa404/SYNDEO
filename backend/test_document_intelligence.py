@@ -18,10 +18,24 @@ from document_ai_provider import (
     HuggingFaceDocumentProvider
 )
 
+import zipfile
+
 client = TestClient(app)
 
 def create_mock_pdf(text: str) -> bytes:
     return b"%PDF-1.4\n" + text.encode('utf-8') + b"\n%%EOF"
+
+def create_mock_docx(text: str) -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+        doc_xml = (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+            f'<w:body><w:p><w:r><w:t>{text}</w:t></w:r></w:p></w:body>'
+            '</w:document>'
+        )
+        zf.writestr('word/document.xml', doc_xml.encode('utf-8'))
+    return buffer.getvalue()
 
 # 1. Valid document extraction test
 def test_valid_document_extraction():
@@ -256,3 +270,34 @@ def test_user_rejection_of_claim():
     
     audit_trail = audit_logger.get_audit_trail()
     assert any(log["action"] == "CLAIM_REJECTED" and "Health Insurance Policy Number" in log["fieldsAccessed"] for log in audit_trail)
+
+# 15. DOCX document extraction end-to-end
+def test_valid_docx_document_extraction():
+    docx_content = create_mock_docx("Candidate Resume: Indresh Suresh. University of Mumbai SLRTCE. CGPA: 9.15 / 10.0. Current Employer: Veritas Technologies LLC. Primary Tax ID PAN ABCPS9821K")
+    files = {"file": ("resume.docx", docx_content, "application/vnd.openxmlformats-officedocument.wordprocessingml.document")}
+    data = {"category": "employment"}
+    
+    response = client.post("/api/documents/upload", files=files, data=data)
+    assert response.status_code == 200
+    res_json = response.json()
+    
+    assert "proposal" in res_json
+    proposal = res_json["proposal"]
+    assert proposal["document_id"].startswith("doc-")
+    assert len(proposal["claims"]) > 0
+    # Verify claims extracted from DOCX
+    claims = proposal["claims"]
+    assert any("Veritas" in c["value"] or "9.15" in c["value"] or "SLRTCE" in c["value"] or "ABCPS9821K" in c["value"] for c in claims)
+    assert "sha256Hash" in res_json
+    assert len(res_json["sha256Hash"]) == 64
+
+# 16. Direct DOCX text parsing function
+def test_docx_text_parsing_direct():
+    from document_agent import parse_docx_text, parse_document_text
+    raw_docx = create_mock_docx("Education: Indian Institute of Technology. CGPA: 9.80.")
+    parsed = parse_docx_text(raw_docx)
+    assert "Indian Institute of Technology" in parsed
+    assert "9.80" in parsed
+
+    dispatched = parse_document_text(raw_docx, "sample.docx")
+    assert "Indian Institute of Technology" in dispatched

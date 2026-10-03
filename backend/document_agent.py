@@ -5,6 +5,8 @@ import uuid
 import logging
 from datetime import datetime, timezone
 from typing import Dict, List, Any, Optional, Tuple
+import zipfile
+import xml.etree.ElementTree as ET
 from pypdf import PdfReader
 
 from document_schemas import (
@@ -122,6 +124,77 @@ def canonicalize_extracted_field(raw_field: str, raw_value: str, doc_type: str) 
     title_field = " ".join(w.capitalize() for w in raw_field.replace("_", " ").split())
     return cat_fallback, title_field, False, False, None
 
+def parse_docx_text(content_bytes: bytes) -> str:
+    """Extracts text paragraphs and table contents from a Microsoft Word .docx file."""
+    try:
+        with zipfile.ZipFile(io.BytesIO(content_bytes)) as zf:
+            if "word/document.xml" in zf.namelist():
+                xml_content = zf.read("word/document.xml")
+                tree = ET.fromstring(xml_content)
+                text_pieces = []
+                for elem in tree.iter():
+                    tag_name = elem.tag.split("}")[-1] if "}" in elem.tag else elem.tag
+                    if tag_name == "t" and elem.text:
+                        text_pieces.append(elem.text)
+                    elif tag_name == "p":
+                        text_pieces.append("\n")
+                    elif tag_name == "tab":
+                        text_pieces.append(" ")
+                full_text = "".join(text_pieces)
+                cleaned = re.sub(r"\n{3,}", "\n\n", full_text).strip()
+                if cleaned:
+                    return cleaned
+    except Exception as err:
+        logger.debug(f"DOCX text parse note: {err}")
+    return ""
+
+def parse_pdf_text(content_bytes: bytes) -> str:
+    """Extracts text lines from PDF bytes or printable ASCII/UTF-8 streams."""
+    try:
+        reader = PdfReader(io.BytesIO(content_bytes))
+        text_lines = []
+        for page in reader.pages:
+            text = page.extract_text()
+            if text:
+                text_lines.append(text)
+        if text_lines:
+            return "\n".join(text_lines)
+    except Exception as err:
+        logger.debug(f"PDF text parse note: {err}")
+
+    # Fallback: extract printable strings from raw bytes
+    try:
+        printable = content_bytes.decode('utf-8', errors='ignore')
+        clean_lines = [line.strip() for line in printable.splitlines() if len(line.strip()) > 3]
+        if clean_lines:
+            return "\n".join(clean_lines)
+    except Exception:
+        pass
+
+    return f"Document binary payload ({len(content_bytes)} bytes)"
+
+def parse_document_text(arg1: Any, arg2: Optional[Any] = None) -> str:
+    """Extracts clean text from PDF, DOCX, or text streams. Accepts (file_name, content_bytes) or (content_bytes, file_name)."""
+    if isinstance(arg1, (bytes, bytearray)):
+        content_bytes = bytes(arg1)
+        file_name = str(arg2 or "")
+    else:
+        file_name = str(arg1 or "")
+        content_bytes = bytes(arg2 or b"")
+
+    fn_lower = file_name.lower()
+    if fn_lower.endswith(".docx") or content_bytes.startswith(b"PK\x03\x04"):
+        docx_text = parse_docx_text(content_bytes)
+        if docx_text:
+            return docx_text
+
+    if fn_lower.endswith(".pdf") or content_bytes.startswith(b"%PDF-"):
+        pdf_text = parse_pdf_text(content_bytes)
+        if pdf_text and not pdf_text.startswith("Document binary payload"):
+            return pdf_text
+
+    return parse_pdf_text(content_bytes)
+
 class DocumentAgent:
     """
     SYNDEO Document Agent (Document Intelligence Coordinator)
@@ -132,6 +205,10 @@ class DocumentAgent:
     2. Hugging Face NEVER writes directly to database, grants permissions, or creates active claims automatically.
     3. Retains cryptographic provenance for every proposed claim.
     """
+    parse_docx_text = staticmethod(parse_docx_text)
+    parse_pdf_text = staticmethod(parse_pdf_text)
+    parse_document_text = staticmethod(parse_document_text)
+
     def __init__(self, provider: Optional[DocumentAIProvider] = None):
         self.provider = provider or HuggingFaceDocumentProvider()
         self.pending_proposals: Dict[str, DocumentExtractionProposal] = {}
@@ -139,30 +216,6 @@ class DocumentAgent:
     def compute_sha256(self, content_bytes: bytes) -> str:
         return hashlib.sha256(content_bytes).hexdigest()
 
-    def parse_pdf_text(self, content_bytes: bytes) -> str:
-        """Extracts text lines from PDF bytes or printable ASCII/UTF-8 streams."""
-        try:
-            reader = PdfReader(io.BytesIO(content_bytes))
-            text_lines = []
-            for page in reader.pages:
-                text = page.extract_text()
-                if text:
-                    text_lines.append(text)
-            if text_lines:
-                return "\n".join(text_lines)
-        except Exception as err:
-            logger.debug(f"PDF text parse note: {err}")
-
-        # Fallback: extract printable strings from raw bytes
-        try:
-            printable = content_bytes.decode('utf-8', errors='ignore')
-            clean_lines = [line.strip() for line in printable.splitlines() if len(line.strip()) > 3]
-            if clean_lines:
-                return "\n".join(clean_lines)
-        except Exception:
-            pass
-
-        return f"Document binary payload ({len(content_bytes)} bytes)"
 
     async def process_document_and_propose_claims(
         self,
@@ -203,7 +256,7 @@ class DocumentAgent:
         # 4. Extract text
         text_content = (extracted_text or "").strip()
         if not text_content:
-            text_content = self.parse_pdf_text(content_bytes)
+            text_content = self.parse_document_text(file_name, content_bytes)
         char_count = len(text_content)
         page_count = 1
 
